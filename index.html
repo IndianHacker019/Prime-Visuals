@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prime Visuals- Short-Form Video Editing Specialist</title>
+    <title>ShortForm Pro - Short-Form Video Editing Specialist</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -286,4 +286,319 @@
                 <div class="footer-section">
                     <h4>ShortForm Pro</h4>
                     <p style="color:var(--text-dim);line-height:1.8;">Professional short-form video editing for creators and brands. Based in India, serving global clients.</p>
-      
+                </div>
+                <div class="footer-section">
+                    <h4>Navigation</h4>
+                    <ul>
+                        <li><a href="#portfolio">Portfolio</a></li>
+                        <li><a href="#testimonials">Reviews</a></li>
+                        <li><a href="#pricing">Pricing</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Connect</h4>
+                    <ul>
+                        <li><a href="#" id="footerInstagram">Instagram</a></li>
+                        <li><a href="#" id="footerYoutube">YouTube</a></li>
+                        <li><a href="#" id="footerEmail">Email</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p id="footerCopyright">© 2026 ShortForm Pro. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- VIDEO MODAL -->
+    <div class="vmodal-overlay" id="videoModal" onclick="closeVideoModal(event)">
+        <div class="vmodal-box" id="videoModalBox">
+            <div class="vmodal-header">
+                <div class="vmodal-title" id="vmodalTitle"></div>
+                <button class="vmodal-close" onclick="closeVideoModal()">×</button>
+            </div>
+            <div class="vmodal-player" id="vmodalPlayer"></div>
+            <div class="vmodal-footer" id="vmodalFooter"></div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast" id="toast"></div>
+
+    <!-- FIREBASE SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+        import { FIREBASE_CONFIG } from './firebase-config.js';
+
+        const app = initializeApp(FIREBASE_CONFIG);
+        const db  = getFirestore(app);
+
+        // ─── HELPERS ──────────────────────────────────────────────────────────
+        function fmt(n) {
+            if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
+            if (n >= 1000)    return (n/1000).toFixed(0)+'K';
+            return n || 0;
+        }
+        function escHtml(s) {
+            return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // ─── VIDEO URL PARSER ─────────────────────────────────────────────────
+        // Returns { type: 'youtube'|'vimeo'|null, id, embedUrl, thumbUrl, badgeClass, label }
+        function parseVideoUrl(url) {
+            if (!url) return null;
+
+            // YouTube — handles:
+            //   youtu.be/ID
+            //   youtube.com/watch?v=ID
+            //   youtube.com/shorts/ID
+            //   youtube.com/embed/ID
+            const ytMatch = url.match(
+                /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/))([A-Za-z0-9_-]{11})/
+            );
+            if (ytMatch) {
+                const id = ytMatch[1];
+                return {
+                    type:       'youtube',
+                    id,
+                    embedUrl:   `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1`,
+                    thumbUrl:   `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+                    badgeClass: 'badge-youtube',
+                    label:      'YouTube'
+                };
+            }
+
+            // Vimeo — handles:
+            //   vimeo.com/ID
+            //   player.vimeo.com/video/ID
+            const vmMatch = url.match(/(?:vimeo\.com\/(?:video\/)?)(\d+)/);
+            if (vmMatch) {
+                const id = vmMatch[1];
+                return {
+                    type:       'vimeo',
+                    id,
+                    embedUrl:   `https://player.vimeo.com/video/${id}?autoplay=1&title=0&byline=0&portrait=0`,
+                    thumbUrl:   null,  // fetched async below
+                    badgeClass: 'badge-vimeo',
+                    label:      'Vimeo'
+                };
+            }
+
+            return null; // unknown / unsupported
+        }
+
+        // Fetch Vimeo thumbnail via their oEmbed endpoint (CORS-safe, no API key needed)
+        async function getVimeoThumb(id) {
+            try {
+                const r = await fetch(`https://vimeo.com/api/v2/video/${id}.json`);
+                const d = await r.json();
+                return d[0]?.thumbnail_large || null;
+            } catch { return null; }
+        }
+
+        // ─── BUILD VIDEO CARD HTML ────────────────────────────────────────────
+        function buildVideoCard(v) {
+            const parsed = parseVideoUrl(v.videoUrl);
+            const hasVideo = !!parsed;
+
+            // Thumbnail
+            let thumbHtml = '';
+            if (parsed?.type === 'youtube') {
+                thumbHtml = `<img class="video-thumb" src="${parsed.thumbUrl}" alt="${escHtml(v.title)}" loading="lazy" onerror="this.style.display='none'">`;
+            }
+            // Vimeo thumb set by JS after render (async)
+            // For no-video cards, just show gradient placeholder
+
+            const badgeHtml = parsed
+                ? `<span class="platform-badge ${parsed.badgeClass}">${parsed.label}</span>`
+                : `<span class="platform-badge badge-other">${escHtml(v.platform||'Video')}</span>`;
+
+            const playHtml = hasVideo
+                ? `<div class="play-btn">
+                       <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                   </div>`
+                : '';
+
+            const cardClass = hasVideo ? 'video-card' : 'video-card no-video';
+            const clickAttr = hasVideo
+                ? `onclick="openVideoModal('${escHtml(v.videoUrl)}','${escHtml(v.title)}',${v.views||0},${v.likes||0},'${escHtml(v.platform||'')}')"`
+                : '';
+
+            return `
+                <div class="${cardClass}" ${clickAttr} data-vimeo-id="${parsed?.type==='vimeo' ? parsed.id : ''}">
+                    <div class="video-thumb-placeholder"></div>
+                    ${thumbHtml}
+                    <div class="video-scrim"></div>
+                    ${badgeHtml}
+                    ${playHtml}
+                    <div class="video-info">
+                        <h3>${escHtml(v.title)}</h3>
+                        <div class="video-stats">
+                            <div class="stat"><span>👁️</span><span>${fmt(v.views||0)}</span></div>
+                            <div class="stat"><span>❤️</span><span>${fmt(v.likes||0)}</span></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // After rendering, fetch & inject Vimeo thumbnails async
+        async function injectVimeoThumbs() {
+            const cards = document.querySelectorAll('[data-vimeo-id]');
+            for (const card of cards) {
+                const id = card.dataset.vimeoId;
+                if (!id) continue;
+                const thumb = await getVimeoThumb(id);
+                if (thumb) {
+                    const img = document.createElement('img');
+                    img.className = 'video-thumb';
+                    img.src = thumb;
+                    img.alt = '';
+                    img.loading = 'lazy';
+                    card.insertBefore(img, card.querySelector('.video-scrim'));
+                }
+            }
+        }
+
+        // ─── MODAL LOGIC ──────────────────────────────────────────────────────
+        window.openVideoModal = function(url, title, views, likes, platform) {
+            const parsed = parseVideoUrl(url);
+            if (!parsed) return;
+
+            document.getElementById('vmodalTitle').textContent = title;
+            document.getElementById('vmodalPlayer').innerHTML =
+                `<iframe src="${parsed.embedUrl}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+            document.getElementById('vmodalFooter').innerHTML =
+                `<span>👁️ ${fmt(views)} views</span><span>❤️ ${fmt(likes)} likes</span><span>📱 ${escHtml(platform)}</span>`;
+
+            document.getElementById('videoModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closeVideoModal = function(e) {
+            // Close on overlay click (but not on the box itself)
+            if (e && e.target !== document.getElementById('videoModal')) return;
+            _closeModal();
+        };
+
+        function _closeModal() {
+            document.getElementById('videoModal').classList.remove('active');
+            // Stop video by clearing iframe src
+            document.getElementById('vmodalPlayer').innerHTML = '';
+            document.body.style.overflow = '';
+        }
+
+        // Close on Escape key
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') _closeModal();
+        });
+
+        // ─── LOAD VIDEOS ──────────────────────────────────────────────────────
+        async function loadVideos() {
+            const grid = document.getElementById('portfolioGrid');
+            try {
+                const snap = await getDocs(query(collection(db,'videos'), orderBy('createdAt','desc')));
+                if (snap.empty) {
+                    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-dim);padding:3rem;">No portfolio videos yet. Check back soon!</div>';
+                    updateStats([]);
+                    return;
+                }
+                const videos = snap.docs.map(d => ({id:d.id,...d.data()}));
+                grid.innerHTML = videos.map(buildVideoCard).join('');
+                updateStats(videos);
+                injectVimeoThumbs(); // async, non-blocking
+            } catch(err) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--danger);padding:3rem;">Failed to load portfolio. Please try again later.</div>';
+                console.error('loadVideos:', err);
+            }
+        }
+
+        // ─── LOAD TESTIMONIALS ────────────────────────────────────────────────
+        async function loadTestimonials() {
+            const grid = document.getElementById('testimonialsGrid');
+            try {
+                const snap = await getDocs(query(collection(db,'testimonials'), orderBy('createdAt','desc')));
+                if (snap.empty) {
+                    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-dim);padding:3rem;">No testimonials yet.</div>';
+                    return;
+                }
+                grid.innerHTML = snap.docs.map(d => {
+                    const t = d.data();
+                    const stars = '★'.repeat(t.rating||5) + '☆'.repeat(5-(t.rating||5));
+                    return `
+                        <div class="testimonial-card">
+                            <div class="stars">${stars}</div>
+                            <p class="testimonial-text">"${escHtml(t.text)}"</p>
+                            <div class="author">
+                                <div class="avatar">${(t.name||'A').charAt(0).toUpperCase()}</div>
+                                <div class="author-info">
+                                    <h4>${escHtml(t.name)}</h4>
+                                    <p>${escHtml(t.role||'Client')}</p>
+                                </div>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch(err) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--danger);padding:3rem;">Failed to load testimonials.</div>';
+            }
+        }
+
+        // ─── LOAD PRICING ─────────────────────────────────────────────────────
+        async function loadPricing() {
+            const grid = document.getElementById('pricingGrid');
+            try {
+                const snap = await getDocs(query(collection(db,'pricing'), orderBy('order','asc')));
+                if (snap.empty) {
+                    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-dim);padding:3rem;">Pricing coming soon. Contact for quotes.</div>';
+                    return;
+                }
+                grid.innerHTML = snap.docs.map(d => {
+                    const p = d.data();
+                    const featList = (p.features||[]).map(f=>`<li>${escHtml(f)}</li>`).join('');
+                    return `
+                        <div class="pricing-card ${p.featured?'featured':''}">
+                            ${p.featured?'<div class="pricing-badge">Most Popular</div>':''}
+                            <div class="pricing-name">${escHtml(p.name)}</div>
+                            <div class="pricing-desc">${escHtml(p.description||'')}</div>
+                            <div class="pricing-price">$${p.price}<span>/ ${escHtml(p.period||'project')}</span></div>
+                            <ul class="pricing-features">${featList}</ul>
+                            <button class="btn ${p.featured?'btn-primary':'btn-secondary'}" onclick="document.getElementById('pricing').scrollIntoView()">Get Started</button>
+                        </div>`;
+                }).join('');
+            } catch(err) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--danger);padding:3rem;">Failed to load pricing.</div>';
+            }
+        }
+
+        // ─── LOAD SETTINGS ────────────────────────────────────────────────────
+        async function loadSettings() {
+            try {
+                const snap = await getDoc(doc(db,'settings','site'));
+                if (snap.exists()) {
+                    const s = snap.data();
+                    if (s.footerCopyright) document.getElementById('footerCopyright').textContent = s.footerCopyright;
+                    if (s.instagram) document.getElementById('footerInstagram').href = s.instagram;
+                    if (s.youtube)   document.getElementById('footerYoutube').href   = s.youtube;
+                    if (s.email)     document.getElementById('footerEmail').href      = 'mailto:'+s.email;
+                }
+            } catch(err) { console.error('loadSettings:', err); }
+        }
+
+        // ─── STATS ────────────────────────────────────────────────────────────
+        function updateStats(videos) {
+            const totalViews = videos.reduce((s,v)=>s+(v.views||0),0);
+            const totalLikes = videos.reduce((s,v)=>s+(v.likes||0),0);
+            const avgEng = totalViews > 0 ? Math.round((totalLikes/totalViews)*100) : 0;
+            document.getElementById('statsVideos').textContent     = (videos.length||0)+'+';
+            document.getElementById('statsViews').textContent      = fmt(totalViews)+'+';
+            document.getElementById('statsClients').textContent    = Math.max(20, Math.floor(videos.length/3))+'+';
+            document.getElementById('statsEngagement').textContent = avgEng+'%';
+        }
+
+        // ─── BOOT ─────────────────────────────────────────────────────────────
+        Promise.all([loadVideos(), loadTestimonials(), loadPricing(), loadSettings()])
+            .catch(err => console.error('Init error:', err));
+    </script>
+</body>
+</html>
