@@ -300,7 +300,8 @@
                     <ul>
                         <li><a href="#" id="footerInstagram">Instagram</a></li>
                         <li><a href="#" id="footerYoutube">YouTube</a></li>
-                        <li><a href="#" id="footerEmail">Email</a></li>
+                        <li><a href="#" id="footerEmail">Email</a></li> 
+                        <li><a href="#" id="footerContact">Contact us</a></li>
                     </ul>
                 </div>
             </div>
@@ -579,7 +580,8 @@
                     const s = snap.data();
                     if (s.footerCopyright) document.getElementById('footerCopyright').textContent = s.footerCopyright;
                     if (s.instagram) document.getElementById('footerInstagram').href = s.instagram;
-                    if (s.youtube)   document.getElementById('footerYoutube').href   = s.youtube;
+                    if (s.youtube)   document.getElementById('footerYoutube').href   = s.youtube; 
+                    if (s.Contact)   document.getElementById('footerContact').href   = s.Contact;
                     if (s.email)     document.getElementById('footerEmail').href      = 'mailto:'+s.email;
                 }
             } catch(err) { console.error('loadSettings:', err); }
