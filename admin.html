@@ -811,7 +811,6 @@ async function loadSettingsForm() {
             const s = snap.data();
             $('settingCopyright').value = s.footerCopyright||'';
             $('settingEmail').value     = s.email||''; 
-            $('settingContact').value     = s.Contact||'';
             $('settingInstagram').value = s.instagram||'';
             $('settingYoutube').value   = s.youtube||'';
         }
@@ -822,7 +821,6 @@ window.saveSettings = async function() {
     const data = {
         footerCopyright: $('settingCopyright').value.trim(),
         email:           $('settingEmail').value.trim(), 
-        Contact:         $('settingContact').value.trim().
         instagram:       $('settingInstagram').value.trim(),
         youtube:         $('settingYoutube').value.trim(),
         updatedAt:       serverTimestamp()
