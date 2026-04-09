@@ -1458,17 +1458,7 @@
             <button class="btn btn-primary" style="width: 100%;" onclick="saveVideo()">Add Video</button>
         </div>
     </div>
-   <script>
-document.querySelectorAll('.video-card video').forEach(video => {
-    video.addEventListener('click', () => {
-        if(video.paused){
-            video.play();
-        } else {
-            video.pause();
-        }
-    });
-});
-   </script>
+   
     <script>
         // DATA STORAGE
         const store = {
@@ -1852,6 +1842,17 @@ document.querySelectorAll('.video-card video').forEach(video => {
         updatePortfolioGrid();
         updateTestimonialsGrid();
         updateStats();
-    </script>
+    </script> 
+    <script>
+document.querySelectorAll('.video-card video').forEach(video => {
+    video.addEventListener('click', () => {
+        if(video.paused){
+            video.play();
+        } else {
+            video.pause();
+        }
+    });
+});
+</script>
 </body>
 </html>
