@@ -1773,32 +1773,43 @@
             alert('Password changed successfully!');
             document.getElementById('currentPassword').value = '';
             document.getElementById('newPassword').value = '';
-        }
-
+        } 
         // PUBLIC SITE FUNCTIONS
-        function updatePortfolioGrid() {
-            const grid = document.getElementById('portfolioGrid');
-            grid.innerHTML = store.videos.map(v => `
-                <div class="video-card">
-                    <div style="width: 100%; height: 100%; background: linear-gradient(135deg, rgba(0, 217, 255, 0.3), rgba(0, 255, 136, 0.1));"></div>
-                    <div class="play-btn"></div>
-                    <div class="video-overlay">
-                        <h3>${v.title}</h3>
-                        <div class="video-stats">
-                            <div class="stat">
-                                <span class="stat-icon">👁️</span>
-                                <span>${(v.views / 1000).toFixed(0)}K views</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-icon">❤️</span>
-                                <span>${(v.likes / 1000).toFixed(1)}K likes</span>
-                            </div>
-                        </div>
+ function updatePortfolioGrid() {
+    const grid = document.getElementById('portfolioGrid');
+
+    grid.innerHTML = store.videos.map(v => `
+        <div class="video-card">
+            <video class="video-thumbnail" muted loop playsinline>
+                <source src="${v.file}" type="video/mp4">
+            </video>
+
+            <div class="play-btn"></div>
+
+            <div class="video-overlay">
+                <h3>${v.title}</h3>
+                <div class="video-stats">
+                    <div class="stat">
+                        <span class="stat-icon">👁️</span>
+                        <span>${(v.views / 1000).toFixed(0)}K views</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-icon">❤️</span>
+                        <span>${(v.likes / 1000).toFixed(1)}K likes</span>
                     </div>
                 </div>
-            `).join('');
-        }
+            </div>
+        </div>
+    `).join('');
 
+    document.querySelectorAll('.video-card video').forEach(video => {
+        video.addEventListener('click', () => {
+            video.paused ? video.play() : video.pause();
+        });
+    });
+ }
+        // PUBLIC SITE FUNCTIONS
+        
         function updateTestimonialsGrid() {
             const grid = document.getElementById('testimonialsGrid');
             grid.innerHTML = store.feedback.map(f => `
