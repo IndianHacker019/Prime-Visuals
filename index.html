@@ -74,7 +74,7 @@ nav a:hover::after { width: 100%; }
 .video-card:hover .video-thumb { transform: scale(1.05); }
 .video-thumb-placeholder { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0,217,255,0.25) 0%, rgba(0,255,136,0.1) 50%, rgba(20,24,41,0.8) 100%); }
 
-/* Instagram card — iframe, hides IG top header + bottom branding */
+/* Instagram card — fullscreen iframe, all IG UI hidden */
 .video-card.card-instagram {
   aspect-ratio: 9/16;
   cursor: pointer;
@@ -86,25 +86,28 @@ nav a:hover::after { width: 100%; }
   height: 100%;
   overflow: hidden;
   background: #000;
+  pointer-events: none; /* prevent clicking inside iframe, card click opens modal */
 }
 .ig-iframe-wrap iframe {
-  width: 100%;
-  height: calc(100% + 120px); /* extend to push footer out */
+  width: 180%;          /* zoom in to crop side padding */
+  height: calc(100% + 200px);
   border: none;
-  margin-top: -64px;          /* shift up to hide profile header */
+  margin-top: -90px;    /* hide top profile bar */
+  margin-left: -40%;    /* re-center after width increase */
+  pointer-events: none;
 }
-/* Cover top (profile row) and bottom (View more row) */
+/* Dark covers for top and bottom IG branding */
 .ig-brand-cover-top {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 64px;
+  height: 80px;
   background: var(--secondary);
   z-index: 4;
 }
 .ig-brand-cover {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  height: 56px;
+  height: 100px;
   background: var(--secondary);
   z-index: 4;
 }
@@ -496,18 +499,20 @@ function buildVideoCard(v) {
   if (parsed?.type === 'instagram') {
     const embedSrc = `https://www.instagram.com/p/${parsed.id}/embed/`;
     const safeTitle2 = (v.title||'').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
-    return `
-      <div class="video-card card-instagram" onclick="openVideoModal('${(v.videoUrl||'').replace(/'/g,"&#39;")}','${safeTitle2}',${v.views||0},${v.likes||0},'Instagram Reels')">
-        <div class="ig-iframe-wrap">
-          <iframe
-            src="${embedSrc}"
-            scrolling="no"
-            allowtransparency="true"
+    // If admin provided a custom thumbnail, show it as bg image instead of iframe
+    const hasCustThumb = !!v.thumbnailUrl;
+    const cardContent = hasCustThumb
+      ? `<img class="video-thumb" src="${escHtml(v.thumbnailUrl)}" alt="${escHtml(v.title)}" loading="lazy" onerror="this.style.display='none'">`
+      : `<div class="ig-iframe-wrap">
+          <iframe src="${embedSrc}" scrolling="no" allowtransparency="true"
             allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share">
           </iframe>
         </div>
         <div class="ig-brand-cover-top"></div>
-        <div class="ig-brand-cover"></div>
+        <div class="ig-brand-cover"></div>`;
+    return `
+      <div class="video-card card-instagram" onclick="openVideoModal('${(v.videoUrl||'').replace(/'/g,"&#39;")}','${safeTitle2}',${v.views||0},${v.likes||0},'Instagram Reels')">
+        ${cardContent}
         <div class="video-scrim"></div>
         <div class="video-info">
           <h3>${escHtml(v.title)}</h3>
@@ -524,8 +529,10 @@ function buildVideoCard(v) {
   if (parsed?.type === 'youtube') {
     thumbHtml = `<img class="video-thumb" src="${parsed.thumbUrl}" alt="${escHtml(v.title)}" loading="lazy" onerror="this.style.display='none'">`;
   } else if (parsed?.type === 'gdrive') {
-    // Clean dark placeholder — no text, just gradient background
-    thumbHtml = `<div class="gdrive-thumb"></div>`;
+    // Use admin-provided thumbnail if available, else clean dark bg
+    thumbHtml = v.thumbnailUrl
+      ? `<img class="video-thumb" src="${escHtml(v.thumbnailUrl)}" alt="${escHtml(v.title)}" loading="lazy" onerror="this.style.display='none'">`
+      : `<div class="gdrive-thumb"></div>`;
   }
 
   const badgeHtml = (parsed && parsed.label)
